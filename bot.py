@@ -10,94 +10,19 @@ from nacl.signing import SigningKey
 from datetime import datetime
 from colorama import *
 import asyncio, random, json, os, pytz
-from cryptography.fernet import Fernet
-import base64
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-import getpass
 
 wib = pytz.timezone('Asia/Jakarta')
-
-class PrivateKeyEncryption:
-    @staticmethod
-    def generate_key(password, salt=None):
-        if salt is None:
-            salt = os.urandom(16)
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
-        return key, salt
-    
-    @staticmethod
-    def encrypt_file(file_path, password):
-        # Check if file exists
-        if not os.path.exists(file_path):
-            print(f"{Fore.RED}File {file_path} not found.{Style.RESET_ALL}")
-            return False
-        
-        # Read the original file
-        with open(file_path, 'r') as f:
-            data = f.read()
-        
-        # Generate encryption key
-        key, salt = PrivateKeyEncryption.generate_key(password)
-        
-        # Encrypt the data
-        fernet = Fernet(key)
-        encrypted_data = fernet.encrypt(data.encode())
-        
-        # Save encrypted data with salt
-        encrypted_file = f"{file_path}.encrypted"
-        with open(encrypted_file, 'wb') as f:
-            f.write(salt + encrypted_data)
-        
-        print(f"{Fore.GREEN}File encrypted and saved as {encrypted_file}{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}Consider deleting the original file {file_path} for security.{Style.RESET_ALL}")
-        return True
-    
-    @staticmethod
-    def decrypt_file(encrypted_file, password):
-        # Check if file exists
-        if not os.path.exists(encrypted_file):
-            print(f"{Fore.RED}Encrypted file {encrypted_file} not found.{Style.RESET_ALL}")
-            return None
-        
-        # Read the encrypted file
-        with open(encrypted_file, 'rb') as f:
-            file_data = f.read()
-        
-        # Extract salt and encrypted data
-        salt = file_data[:16]
-        encrypted_data = file_data[16:]
-        
-        try:
-            # Generate key with the same salt
-            key, _ = PrivateKeyEncryption.generate_key(password, salt)
-            
-            # Decrypt the data
-            fernet = Fernet(key)
-            decrypted_data = fernet.decrypt(encrypted_data).decode()
-            return decrypted_data.splitlines()
-        except Exception as e:
-            print(f"{Fore.RED}Decryption failed: {e}. Incorrect password?{Style.RESET_ALL}")
-            return None
 
 class Ducket:
     def __init__(self) -> None:
         self.BASE_API = "https://launcher.ducket.club/api"
-        self.REF_CODE = "VONSSY" # U can change it with yours.
+        self.REF_CODE = "FENDERXU" # U can change it with yours.
         self.BASE_HEADERS = {}
         self.ARCADE_HEADERS = {}
         self.proxies = []
         self.proxy_index = 0
         self.account_proxies = {}
         self.header_cookies = {}
-        self.use_encrypted_accounts = False
-        self.encrypted_file_path = "accounts.txt.encrypted"
 
     def clear_terminal(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -118,42 +43,6 @@ class Ducket:
         {Fore.GREEN + Style.BRIGHT}Rey? {Fore.YELLOW + Style.BRIGHT}<INI WATERMARK>
             """
         )
-        
-    def encryption_menu(self):
-        self.clear_terminal()
-        self.welcome()
-        print(f"{Fore.CYAN + Style.BRIGHT}Private Key Encryption Menu:{Style.RESET_ALL}")
-        print(f"{Fore.WHITE + Style.BRIGHT}1. Encrypt accounts.txt file{Style.RESET_ALL}")
-        print(f"{Fore.WHITE + Style.BRIGHT}2. Run bot with encrypted accounts file{Style.RESET_ALL}")
-        print(f"{Fore.WHITE + Style.BRIGHT}3. Run bot with standard accounts file{Style.RESET_ALL}")
-        
-        choice = input(f"{Fore.BLUE + Style.BRIGHT}Choose an option [1/2/3]: {Style.RESET_ALL}")
-        
-        if choice == "1":
-            password = getpass.getpass(f"{Fore.BLUE + Style.BRIGHT}Create encryption password: {Style.RESET_ALL}")
-            confirm_password = getpass.getpass(f"{Fore.BLUE + Style.BRIGHT}Confirm password: {Style.RESET_ALL}")
-            
-            if password != confirm_password:
-                self.log(f"{Fore.RED + Style.BRIGHT}Passwords do not match!{Style.RESET_ALL}")
-                return False
-            
-            if len(password) < 8:
-                self.log(f"{Fore.RED + Style.BRIGHT}Password should be at least 8 characters long!{Style.RESET_ALL}")
-                return False
-            
-            return PrivateKeyEncryption.encrypt_file("accounts.txt", password)
-        
-        elif choice == "2":
-            self.use_encrypted_accounts = True
-            return True
-        
-        elif choice == "3":
-            self.use_encrypted_accounts = False
-            return True
-        
-        else:
-            self.log(f"{Fore.RED + Style.BRIGHT}Invalid option!{Style.RESET_ALL}")
-            return False
 
     def format_seconds(self, seconds):
         hours, remainder = divmod(seconds, 3600)
@@ -790,23 +679,8 @@ class Ducket:
 
     async def main(self):
         try:
-            if not self.encryption_menu():
-                return
-            
-            accounts = []
-            if self.use_encrypted_accounts:
-                password = getpass.getpass(f"{Fore.BLUE + Style.BRIGHT}Enter decryption password: {Style.RESET_ALL}")
-                accounts = PrivateKeyEncryption.decrypt_file(self.encrypted_file_path, password)
-                if not accounts:
-                    self.log(f"{Fore.RED + Style.BRIGHT}Failed to decrypt accounts file.{Style.RESET_ALL}")
-                    return
-            else:
-                try:
-                    with open('accounts.txt', 'r') as file:
-                        accounts = [line.strip() for line in file if line.strip()]
-                except FileNotFoundError:
-                    self.log(f"{Fore.RED}File 'accounts.txt' Not Found.{Style.RESET_ALL}")
-                    return
+            with open('accounts.txt', 'r') as file:
+                accounts = [line.strip() for line in file if line.strip()]
             
             use_proxy_choice, rotate_proxy = self.print_question()
 
@@ -884,6 +758,9 @@ class Ducket:
                     await asyncio.sleep(1)
                     seconds -= 1
 
+        except FileNotFoundError:
+            self.log(f"{Fore.RED}File 'accounts.txt' Not Found.{Style.RESET_ALL}")
+            return
         except Exception as e:
             self.log(f"{Fore.RED+Style.BRIGHT}Error: {e}{Style.RESET_ALL}")
 
